@@ -14,8 +14,80 @@ AS
 BEGIN
 SET NOCOUNT ON;
 BEGIN TRY
+declare @comando_original as varchar(max)
+-- table auditori_pops doesn´t exist, then create it.
+if OBJECT_ID(N'dbo.auditoria_pops', N'U') is null
+begin
+CREATE TABLE [dbo].[auditoria_pops](
+	[id_auditoria_pops] [numeric](18, 0) NULL,
+	[comando_ejecutado] [varchar](255) NULL,
+	[codigo_error_recibido] [varchar](255) NULL,
+	[fecha_ejecucion] [datetime] NULL,
+	[cs_no] [varchar](50) NULL,
+	[job_no] [numeric](18, 0) NULL,
+	[nombre_host] [varchar](255) NULL,
+	[base_datos] [varchar](255) NULL,
+	[usuario] [varchar](255) NULL
+) ON [PRIMARY]
+end
 
-IF isnull(@in_cs_no,'')='' THROW 51000, 'The cs_no can´t be empty or null.', 1; 
+-- Create the auditory stored procedure, to insert changes on auditoria_pops
+IF EXISTS (
+        SELECT type_desc, type
+        FROM sys.procedures WITH(NOLOCK)
+        WHERE NAME = 'pops_audit'
+            AND type = 'P'
+      )
+	  begin
+	  print 'pops_audit existe, todo bien.'
+	  end
+	  else
+	  begin
+	  print 'no existe, crear'
+declare @command as varchar(max)
+set @command=
+'CREATE PROCEDURE pops_audit
+		@comando_ejecutado varchar(255),
+		@codigo_error_recibido varchar(255) ,
+		@fecha_ejecucion datetime,
+		@cs_no varchar(50),
+		@job_no numeric(18, 0) ,
+		@nombre_host varchar(255),
+		@base_datos varchar(255) ,
+		@usuario varchar(255) 
+AS
+BEGIN
+	SET NOCOUNT ON;
+	insert into auditoria_pops(
+       [comando_ejecutado]
+      ,[codigo_error_recibido]
+      ,[fecha_ejecucion]
+      ,[cs_no]
+      ,[job_no]
+      ,[nombre_host]
+      ,[base_datos]
+      ,[usuario])
+ values(
+	   @comando_ejecutado
+      ,@codigo_error_recibido
+      ,@fecha_ejecucion
+      ,@cs_no
+      ,@job_no
+      ,@nombre_host
+      ,@base_datos
+      ,@usuario
+ )
+END'
+exec(@command)
+end
+
+
+
+IF isnull(@in_cs_no,'')=''
+begin
+exec pops_audit 
+THROW 51000, 'The cs_no can´t be empty or null.', 1; 
+end
 IF isnull(@in_job_no,'')='' THROW 51000, 'The job_no can´t be empty or null.', 1; 
 IF isnull(@in_latitude,'')='' THROW 51000, 'The latitude can´t be empty or null.', 1;  
 IF isnull(@in_longitude,'')='' THROW 51000, 'The longitude can´t be empty or null.', 1; 
