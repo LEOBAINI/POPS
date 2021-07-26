@@ -1,3 +1,4 @@
+
 USE [MonitorTestDB]
 GO
 /****** Object:  StoredProcedure [dbo].[SP_POPS]    Script Date: 9/7/2021 14:52:49 ******/
@@ -68,9 +69,14 @@ insert into auditoria_pops(
 	)
 declare @max_id_auditoria_pops [numeric](18, 0);
 declare @error varchar(255);
+declare @initial_status char(2);
+
 set @error=null;
 set @max_id_auditoria_pops=(select max(id_auditoria_pops) from auditoria_pops);
 --PARA AUDITORIA
+
+
+
 IF @cs_no=''
 BEGIN
 set @error='@cs_no NO PUEDE SER VACÍO.';
@@ -117,6 +123,55 @@ if(@status='F' and isnull(@imagePath,'')='')
 BEGIN
 set @error='El status es F, subida de foto, pero no contiene el path a la foto, ingrese @imagePath '
 END
+
+
+select  @initial_status=status from job_employee_summary with(nolock)  WHERE job_no=@job_no
+-- Control de precedencia de estados de acuda.
+
+
+/*1_ 'E' (Para Onroute)
+2_ 'O' (Para OnSite)
+3_ 'C' (Completado)
+4_ 'M' (Comentario)
+5_ 'F' (Subida de foto)*/
+
+
+
+
+-- Pedir estado inicial en la bbdd
+
+-- Poner estado E
+--		Si estado es asignado, poner E, sino error.
+-- Poner estado O
+--		Si estado es E, se puede poner O, sino error.
+-- Poner estado C
+--		Si estado es O, permitir C, sino Error--
+if( @status='E' or  @status='O' or  @status='C')-- Si el status cambia la tabla job_employee_summary, controlar precedencia
+BEGIN
+	if(@status='E' AND @initial_status <>'A')
+	BEGIN
+	set @error='Error,status ingresado es E, status anterior deberia ser A, y no '+@initial_status+' como es ahora.'
+	END
+	if(@status='O' AND @initial_status <>'E')
+	BEGIN
+	set @error='Error,status ingresado es O, status anterior deberia ser E, y no '+@initial_status+' como es ahora.'
+	END
+	if(@status='C' AND @initial_status <>'O')
+	BEGIN
+	set @error='Error,status ingresado es C, status anterior deberia ser O, y no '+@initial_status+' como es ahora.'
+	END
+
+END
+
+
+
+
+-- Fin Control de precedencia de estados de acuda.
+
+
+
+
+
 if @error is not null
 begin
 update auditoria_pops set error=@error where id_auditoria_pops=@max_id_auditoria_pops;
@@ -313,15 +368,11 @@ end
 	END
 	IF (@status='F')
 	BEGIN
-
-
-
---Job# 600067617 url: file://///10.28.28.46/fotossmart_pro/fotosacuda/PT/2667075955/600141234JPEG_20210505_161144_4813902396459060736.jpg;
-
---'
 	set @ams_event_id='DLDMED'
-	set @ams_comment=@prefijo_job_no+@espacio+convert(varchar(max),@job_no)+' url: '+@imagePath+';
-	'
+	set @ams_comment=@prefijo_job_no+@espacio+convert(varchar(max),@job_no)+' url:'+@imagePath+';
+	'-- Este salto de linea es a proposito, para que aparezca en verde en MasterMind y el vinculo quede clickeable y asi abra la url de la foto
+	-- descubrimiento by Frank
+
 	END
 
 	exec dbo.ap_manual_signal 
