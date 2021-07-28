@@ -1,11 +1,13 @@
-
 USE [MonitorTestDB]
 GO
-/****** Object:  StoredProcedure [dbo].[SP_POPS]    Script Date: 9/7/2021 14:52:49 ******/
+
+/****** Object:  StoredProcedure [dbo].[SP_POPS]    Script Date: 28/7/2021 13:18:48 ******/
 SET ANSI_NULLS ON
 GO
+
 SET QUOTED_IDENTIFIER ON
 GO
+
 
 ALTER PROCEDURE 
 [dbo].[SP_POPS] 
@@ -146,7 +148,8 @@ select  @initial_status=status from job_employee_summary with(nolock)  WHERE job
 --		Si estado es E, se puede poner O, sino error.
 -- Poner estado C
 --		Si estado es O, permitir C, sino Error--
-if( @status='E' or  @status='O' or  @status='C')-- Si el status cambia la tabla job_employee_summary, controlar precedencia
+
+if( @status='E' or  @status='O' or  @status='C' or @status='F')-- Si el status cambia la tabla job_employee_summary, controlar precedencia
 BEGIN
 	if(@status='E' AND @initial_status <>'A')
 	BEGIN
@@ -159,6 +162,10 @@ BEGIN
 	if(@status='C' AND @initial_status <>'O')
 	BEGIN
 	set @error='Error,status ingresado es C, status anterior deberia ser O, y no '+@initial_status+' como es ahora.'
+	END
+	if(@status='F' AND @initial_status ='C')
+	BEGIN
+	set @error='Error, no se permite subir fotos una vez completada la intervencion'-- 28/07/2021
 	END
 
 END
@@ -325,9 +332,24 @@ convert(varchar(max),@job_no)+
 @longitude+
 @parentesis_cierra
 
+/*
+Job#@espacio+@job_no;Employee#@espacio+usuario
++@espacio+@pipe+@espacio
++gps@espacio+location#@espacio+@parentesisAbierto+@latitud+@espacio+@barra+spacio+@longitud+@parentesisiCerrado+@espacio+@comentario
+
+Si M, entonces lleva comentario
+Si F comentario=imagepath
+*/
+
+
+if(@status='F')
+begin
+set @comment=LEFT(@comment, 10)
+end
+
 if (len(@comment)>0)
 begin
-set @ams_comment=@comment+@ams_comment
+set @ams_comment=@ams_comment+@espacio+@comment-- 28/07/2021
 end
 
 
@@ -369,7 +391,7 @@ end
 	IF (@status='F')
 	BEGIN
 	set @ams_event_id='DLDMED'
-	set @ams_comment=@prefijo_job_no+@espacio+convert(varchar(max),@job_no)+' url:'+@imagePath+';
+	set @ams_comment=@ams_comment+' url:'+@espacio+@imagePath+';
 	'-- Este salto de linea es a proposito, para que aparezca en verde en MasterMind y el vinculo quede clickeable y asi abra la url de la foto
 	-- descubrimiento by Frank
 
@@ -402,3 +424,6 @@ PRINT ERROR_MESSAGE ()
 END CATCH
     
 END
+GO
+
+
