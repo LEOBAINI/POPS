@@ -1,3 +1,6 @@
+/*
+revision 2-3-2022 se agrega status z, cuna do falla la api de pops que genera evento FCPOPS
+*/
 USE [MonitorTestDB]
 GO
 
@@ -81,15 +84,15 @@ set @max_id_auditoria_pops=(select max(id_auditoria_pops) from auditoria_pops);
 
 IF @cs_no=''
 BEGIN
-set @error='@cs_no NO PUEDE SER VACÍO.';
+set @error='@cs_no NO PUEDE SER VACÃO.';
 END
 IF @job_no=0 OR @job_no IS NULL
 BEGIN
-set @error='@job_no NO PUEDE SER VACÍO.';
+set @error='@job_no NO PUEDE SER VACÃO.';
 END
-IF @status='' OR @status IS NULL OR @status not in ('E','O','C','M','F')
+IF @status='' OR @status IS NULL OR @status not in ('E','O','C','M','F','Z')
 BEGIN
-set @error='@status NO PUEDE SER VACÍO. Y ADEMAS DEBE SER ALGUNO DE ESTOS (''E'',''O'',''C'',''M'',''F'')';
+set @error='@status NO PUEDE SER VACÃO. Y ADEMAS DEBE SER ALGUNO DE ESTOS (''E'',''O'',''C'',''M'',''F'',''Z'')';
 END
 IF @comment='No se ha definido un comentario en SP_POPS' 
 BEGIN
@@ -97,28 +100,28 @@ set @error='@comment NO HA SIDO DEFINIDO.';
 END
 IF @latitude='' OR @latitude IS NULL
 BEGIN
-set @error='@latitude NO PUEDE SER VACÍO.';
+set @error='@latitude NO PUEDE SER VACÃO.';
 END
 IF @longitude='' OR @longitude IS NULL
 BEGIN
-set @error= '@longitude NO PUEDE SER VACÍO.';
+set @error= '@longitude NO PUEDE SER VACÃO.';
 END
 IF (@status='C')
 	BEGIN
 		if (isnull(@jobres_id,'')='')
 		BEGIN
-		set @error= '@jobres_id NO PUEDE SER VACÍO si el @status=''C'' debe finalizar con una resolucion';
+		set @error= '@jobres_id NO PUEDE SER VACÃO si el @status=''C'' debe finalizar con una resolucion';
 		END
 		IF(@jobres_id IS NOT NULL AND @jobres_id NOT IN (SELECT  jobres_id FROM  dbo.resolution WHERE   (active_flag = 'Y')))
 		BEGIN
-		set @error='La resolución no se encuentra dentro de las resoluciones permitidas y definidas en v_acu_jobs_resolution'
+		set @error='La resoluciÃ³n no se encuentra dentro de las resoluciones permitidas y definidas en v_acu_jobs_resolution'
 		END
 		
 		
 	END
 if (isnull(@employee,'')='')
 BEGIN
-set @error= 'EL @EMPLOYEE NO DEBE SER VACÍO *'+@employee+'*'
+set @error= 'EL @EMPLOYEE NO DEBE SER VACÃO *'+@employee+'*'
 END
 
 if(@status='F' and isnull(@imagePath,'')='')
@@ -187,7 +190,7 @@ end
 /*
 Input necesario
 @cs_no	as varchar(20), --input ejemplo -> 'C123456'
-@comment as	varchar(255), -- 'input Ejemplo N'Job# 600067617;Employee# 76-MÓVEL PIR AVEIRO | gps location# (40.6376161 / -8.6582709)'
+@comment as	varchar(255), -- 'input Ejemplo N'Job# 600067617;Employee# 76-MÃ“VEL PIR AVEIRO | gps location# (40.6376161 / -8.6582709)'
 @job_no as	int,--input	
 @status	as char(2),--input solo 5 opciones disponibles:
 1_ 'E' (Para Onroute)
@@ -219,7 +222,7 @@ Input necesario
 declare 
 --
 /*variables fijas para prefijos*/
---Composición del comment cuando es vacío
+--ComposiciÃ³n del comment cuando es vacÃ­o
 @prefijo_job_no as varchar(50),
 @prefijo_emp_no as varchar(50),
 @prefijo_gps_location as varchar(50),
@@ -309,8 +312,8 @@ set @parentesis_cierra=')'
 select first_name+' '+last_name from employee with(nolock) 
 where emp_no=(select emp_no from job_employee_summary with(nolock) where job_no=@job_no)
 )*/--se quita employee de Master, porque ya viene dado por el input
---Composición del comment
---Job# 600140289;Employee# 76-MÓVEL PIR AVEIRO | gps location# (40.6376161 / -8.6582709)'
+--ComposiciÃ³n del comment
+--Job# 600140289;Employee# 76-MÃ“VEL PIR AVEIRO | gps location# (40.6376161 / -8.6582709)'
 
 set @ams_comment=@prefijo_job_no+
 @espacio+
@@ -336,7 +339,6 @@ convert(varchar(max),@job_no)+
 Job#@espacio+@job_no;Employee#@espacio+usuario
 +@espacio+@pipe+@espacio
 +gps@espacio+location#@espacio+@parentesisAbierto+@latitud+@espacio+@barra+spacio+@longitud+@parentesisiCerrado+@espacio+@comentario
-
 Si M, entonces lleva comentario
 Si F comentario=imagepath
 */
@@ -396,6 +398,10 @@ end
 	-- descubrimiento by Frank
 
 	END
+	IF (@status='Z')
+	BEGIN
+	set @ams_event_id='FCPOPS'
+	END
 
 	exec dbo.ap_manual_signal 
 	@ams_cs_no, 
@@ -425,5 +431,4 @@ END CATCH
     
 END
 GO
-
 
